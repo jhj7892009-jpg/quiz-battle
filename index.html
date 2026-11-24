@@ -6,6 +6,9 @@
 <title>Australia 퀴즈 배틀 · Lesson 2</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
 <style>
+html{overflow-anchor:none}
+#chatroot{position:absolute;top:0;left:0;width:0;height:0;overflow:hidden}
+
 :root{--bg:#0b1d33;--bg2:#0f2a47;--card:#132f50;--line:#24496f;--txt:#eaf2fb;--sub:#9db4cc;--p0:#ff6b6b;--p1:#4dabf7;--p2:#51cf66;--ok:#37d67a;--bad:#ff5c5c;--gold:#ffd43b}
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;background:radial-gradient(1200px 600px at 20% -10%,#1b4f7a 0%,transparent 60%),linear-gradient(180deg,var(--bg) 0%,#071423 100%);color:var(--txt);font-family:"Noto Sans KR",system-ui,sans-serif}
@@ -497,6 +500,25 @@ body{overflow-x:clip}
 .battle .fc.f0 .spr{transform:scaleX(-1)}
 .battle .fc.faceR .spr{transform:scaleX(-1)}
 .battle .fc.faceL .spr{transform:none}
+
+/* v16 */
+.items.i5{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.items.i5 .itm{position:relative;overflow:hidden;padding:5px 2px;gap:0;font-size:12px;line-height:1.15;min-width:0}
+.items.i5 .ie{font-size:18px;line-height:1.15}
+.items.i5 .il{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.items.i5 small{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.itm.skb .skbar{position:absolute;left:0;bottom:0;height:3px;background:linear-gradient(90deg,#ffd43b,#ff922b)}
+.itm.skb.ready{border-color:#ffd43b;box-shadow:0 0 12px rgba(255,212,59,.55);animation:skPulse 1.2s ease-in-out infinite}
+.itm.skb.ready:disabled{animation:none;box-shadow:none}
+@keyframes skPulse{50%{box-shadow:0 0 22px rgba(255,212,59,.95)}}
+.skn{color:var(--sub)}.skn.rd{color:#ffd43b;font-weight:700}
+.fc .skfx{position:absolute;left:50%;top:36%;z-index:6;white-space:nowrap;font-weight:900;font-size:clamp(12px,3.4vw,17px);color:#fff;background:linear-gradient(90deg,#f76707,#fab005);padding:3px 10px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.5);animation:skPop 2s ease-out both;pointer-events:none}
+@keyframes skPop{0%{opacity:0;transform:translateX(-50%) scale(.3)}15%{opacity:1;transform:translateX(-50%) scale(1.2)}30%{transform:translateX(-50%) scale(1)}80%{opacity:1;transform:translateX(-50%)}100%{opacity:0;transform:translateX(-50%) translateY(-20px)}}
+.fc .pofx{position:absolute;right:8px;top:30%;font-size:26px;animation:poUp 1.4s ease-out both;pointer-events:none;z-index:5}
+@keyframes poUp{0%{opacity:0;transform:translateY(10px) scale(.5)}20%{opacity:1;transform:scale(1.2)}100%{opacity:0;transform:translateY(-30px)}}
+.sc .sksh{color:#ffd43b!important;font-size:11px}
+.linkbtn s{opacity:.45}
+@media (max-width:480px){.items.i5 small{display:none}.items.i5 .itm{padding:4px 2px}}
 </style>
 </head>
 <body>
@@ -1387,8 +1409,8 @@ const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || "null");
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
 let cfg = { name: "", name2: "", name3: "", set: { game: "mc", speed: false, n: 15, sec: [1,2,3], players: 2, cats: CATS.slice(), time: 20, ramp: true } };
-cfg.sound = true;
-{ const sv = lsGet("bq-cfg4"); if (sv && typeof sv === "object"){ ["name","name2","name3"].forEach(k => { const v = cleanName(sv[k]); cfg[k] = v === "?" ? "" : v; }); const s = sanitizeSet(sv.set); if (s){ if (s.cats.length === 4 && !s.cats.includes("ABC")) s.cats = CATS.slice(); cfg.set = s; } cfg.sound = sv.sound !== false; } }
+cfg.sound = true; cfg.bgm = true;
+{ const sv = lsGet("bq-cfg4"); if (sv && typeof sv === "object"){ ["name","name2","name3"].forEach(k => { const v = cleanName(sv[k]); cfg[k] = v === "?" ? "" : v; }); const s = sanitizeSet(sv.set); if (s){ if (s.cats.length === 4 && !s.cats.includes("ABC")) s.cats = CATS.slice(); cfg.set = s; } cfg.sound = sv.sound !== false; cfg.bgm = sv.bgm !== false; } }
 function saveCfg(){ lsSet("bq-cfg4", cfg); }
 
 /* ====== 토큰 지갑 (계정 db에 저장, 안 되면 이 기기에 저장) ====== */
@@ -1509,7 +1531,28 @@ let room = null, roomStatus = "checking", roomErr = "", NET_KIND = "";
 let qKey = null, qStart = 0, shopOpen = false;
 const ctl = { round: null, next: null, grace: null, bots: [] };
 const awarded = new Set(), wrongSeen = new Set();
-let myArmed = false, padArmed = [false, false, false];
+let myUse = { sh: false, po: false, pw: false, sk: false }, padArmed = [false, false, false];
+const NO_USE = () => ({ sh: false, po: false, pw: false, sk: false });
+/* ✨ 캐릭터 스킬: 정답 3번 모으면 1번 쓸 수 있어요 */
+const SK_NEED = 3;
+const SKILLS = {
+  fire:  { e: "🔥", name: "필살 일격", d: "맞히면 공격력 2배 +4" },
+  heal:  { e: "💚", name: "치유의 빛", d: "HP 20 회복" },
+  wall:  { e: "🧱", name: "철벽",      d: "이번 문제 피해 0" },
+  drain: { e: "🧛", name: "흡혈",      d: "맞히면 준 피해만큼 회복" },
+  zap:   { e: "⚡", name: "전기 충격", d: "맞히면 상대 모두 8 피해 (상대가 맞혀도!)" }
+};
+const CH_SKILL = { penguin: "wall", koala: "heal", frog: "zap", kangaroo: "fire", turtle: "heal", fish: "zap", parrot: "drain",
+                   octopus: "wall", owl: "drain", croc: "fire", dolphin: "heal", shark: "drain", dragon: "fire" };
+const skillId = ch => CH_SKILL[ch] || "fire";
+const skillOf = ch => SKILLS[skillId(ch)];
+/* 🎒 대결 아이템 (게임마다 1개씩) */
+const BITEMS = {
+  sh: { e: "🛡️", name: "방어막", d: "공격 다 막기" },
+  po: { e: "🧪", name: "회복약", d: "HP 15 회복" },
+  pw: { e: "⚔️", name: "강타",   d: "맞히면 공격 2배" }
+};
+const newItems = () => ({ sh: 1, po: 1, pw: 1 });
 let hint = { gid: null, used: false, key: null, hide: [] };   // 💡 힌트: 게임당 1번
 let wrongs = { gid: null, list: [] };                           // 📒 오답 노트
 const emoShow = {};                                             // 이모티콘 표시 {key: {e, until}}
@@ -1527,7 +1570,7 @@ function newGame(names, chars, peers, set, extra){
   const g = Object.assign({ gid: makeCode(6), v: 1, phase: "q", set: { ...set, sec: set.sec.slice(), cats: set.cats.slice() }, tl: tlFor(set, 0),
            names: names.slice(), chars: chars.slice(), peers: peers.slice(), qi: 0, total: set.n === 0 ? 0 : Math.min(set.n, pool.length),
            order, qid: order[0], perm: permFor(QS[order[0]]), hp: Array(n).fill(100), ans: Array(n).fill(null), res: null,
-           stats: names.map(() => ({ ok: 0 })), combo: Array(n).fill(0), items: names.map(() => ({ sh: 1 })) }, extra || {});
+           stats: names.map(() => ({ ok: 0 })), combo: Array(n).fill(0), items: names.map(newItems), sk: Array(n).fill(0) }, extra || {});
   // ⚙️ 장비 특성 적용
   g.perks = names.map((_, p) => perksOf(g.gears && g.gears[p]));
   g.maxhp = g.perks.map(t => 100 + t.hp); g.hp = g.maxhp.slice();
@@ -1536,15 +1579,18 @@ function newGame(names, chars, peers, set, extra){
 function waitState(names, chars, peers, set){
   return { maxhp: names.map(() => 100), gid: makeCode(6), v: 1, phase: "wait", set: { ...set, sec: set.sec.slice(), cats: set.cats.slice() }, tl: tlFor(set, 0),
            names, chars, peers, qi: 0, total: 0, order: [], qid: null, perm: [], hp: names.map(() => 100), ans: names.map(() => null), res: null,
-           stats: names.map(() => ({ ok: 0 })), combo: names.map(() => 0), items: names.map(() => ({ sh: 1 })), gears: names.map(() => ({})) };
+           stats: names.map(() => ({ ok: 0 })), combo: names.map(() => 0), items: names.map(newItems), sk: names.map(() => 0), gears: names.map(() => ({})) };
 }
 const alive = (g, p) => g.hp[p] > 0;
 const aliveCount = g => g.hp.filter(h => h > 0).length;
-function submit(g, p, choice, ms, sh){
+function submit(g, p, choice, ms, use){
   if (!g || g.phase !== "q" || g.ans[p] || !alive(g, p)) return false;
-  const useSh = !!sh && g.items && g.items[p] && g.items[p].sh > 0;
-  if (useSh) g.items[p].sh--;
-  g.ans[p] = { choice, ms: Math.max(0, Math.min(g.tl, ms)), sh: useSh };
+  if (!use || typeof use !== "object") use = { sh: !!use };   // 예전 방식(방어막만)도 받기
+  if (!g.sk) g.sk = g.names.map(() => 0);
+  const it = (g.items && g.items[p]) || {};
+  const u = { sh: !!use.sh && it.sh > 0, po: !!use.po && it.po > 0, pw: !!use.pw && it.pw > 0, sk: !!use.sk && g.sk[p] >= SK_NEED };
+  if (u.sh) it.sh--; if (u.po) it.po--; if (u.pw) it.pw--; if (u.sk) g.sk[p] = 0;
+  g.ans[p] = { choice, ms: Math.max(0, Math.min(g.tl, ms)), sh: u.sh, po: u.po, pw: u.pw, sk: u.sk };
   return true;
 }
 const allIn = g => g.names.every((_, p) => !alive(g, p) || g.ans[p]);
@@ -1552,7 +1598,8 @@ function finalize(g){
   const q = QS[g.qid], tl = g.tl, sc = 1 / Math.max(1, aliveCount(g) - 1);
   const res = g.names.map((_, p) => { const dead = !alive(g, p), a = g.ans[p];
     const choice = a ? a.choice : null, ms = a ? a.ms : tl;
-    return { choice, ms, ok: !dead && judge(q, choice), dmg: 0, bonus: 0, self: 0, first: false, dead, taken: 0, sh: !!(a && a.sh), blocked: 0, combo: 0 }; });
+    return { choice, ms, ok: !dead && judge(q, choice), dmg: 0, bonus: 0, self: 0, first: false, dead, taken: 0, sh: !!(a && a.sh), blocked: 0, combo: 0,
+             po: !!(a && a.po), pw: !!(a && a.pw), sk: a && a.sk ? skillId(g.chars[p]) : "", zap: 0 }; });
   res.forEach((r, p) => { if (r.dead) return; g.combo[p] = r.ok ? g.combo[p] + 1 : 0; r.combo = g.combo[p]; });
   // 맞힌 사람만 공격하고, 공격받는 건 틀리거나 시간 초과한 사람뿐. 모두 맞히거나 모두 틀리면 데미지 없음
   const losers = res.filter(r => !r.dead && !r.ok).length;
@@ -1568,17 +1615,40 @@ function finalize(g){
   // ⚙️ 장비 특성: 공격력 +, 치명타(+5)
   const PK = p => (g.perks && g.perks[p]) || perksOf(null);
   res.forEach((r, p) => { if (r.dmg > 0){ r.dmg += PK(p).atk; if (PK(p).crit && Math.random() * 100 < PK(p).crit){ r.dmg += 3; r.crit = true; } } });
-  // 받는 피해: 공격마다 방어력만큼 줄임(최소 1) · 🛡️ 방어막이면 전부 막음
+  // ⚔️ 강타 아이템 · 🔥 필살 일격 · ⚡ 전기 충격
+  res.forEach(r => {
+    if (r.dmg > 0 && r.pw) r.dmg *= 2;
+    if (r.dmg > 0 && r.sk === "fire") r.dmg = r.dmg * 2 + 4;
+    if (r.ok && r.sk === "zap") r.zap = Math.round(8 * sc);
+  });
+  // 받는 피해: 공격마다 방어력만큼 줄임(최소 1) · 🛡️ 방어막 / 🧱 철벽이면 전부 막음
+  const dealt = res.map(() => 0);
   res.forEach((r, p) => {
     if (r.dead) return;
-    let inc = 0; if (!r.ok) res.forEach((o, k) => { if (k !== p && o.dmg > 0) inc += Math.max(1, o.dmg - PK(p).def); });
-    if (r.sh){ r.blocked = inc; inc = 0; } r.taken = inc + r.self;
+    let inc = 0; const from = [];
+    res.forEach((o, k) => { if (k === p) return; let d = 0;
+      if (!r.ok && o.dmg > 0) d += Math.max(1, o.dmg - PK(p).def);
+      if (o.zap) d += o.zap;
+      if (d){ inc += d; from.push([k, d]); } });
+    if (r.sk === "wall") r.self = 0;
+    if (r.sh || r.sk === "wall"){ r.blocked = inc; inc = 0; } else from.forEach(([k, d]) => dealt[k] += d);
+    r.taken = inc + r.self;
   });
   res.forEach((r, p) => {
     const max = (g.maxhp && g.maxhp[p]) || 100;
-    g.hp[p] = Math.max(0, g.hp[p] - r.taken);
-    if (r.ok && g.hp[p] > 0 && PK(p).heal){ r.heal = Math.min(PK(p).heal, max - g.hp[p]); g.hp[p] += r.heal; }
+    let heal = 0;
+    if (!r.dead){
+      if (r.ok && PK(p).heal) heal += PK(p).heal;
+      if (r.po) heal += 15;                       // 🧪 회복약
+      if (r.sk === "heal") heal += 20;            // 💚 치유의 빛
+      if (r.sk === "drain" && r.ok) heal += dealt[p];   // 🧛 흡혈
+    }
+    const base = g.hp[p] - r.taken;
+    if (heal && base > -heal){ r.heal = Math.max(0, Math.min(heal, max - base)); g.hp[p] = Math.max(0, Math.min(max, base + heal)); }
+    else g.hp[p] = Math.max(0, base);
     if (r.ok) g.stats[p].ok++;
+    if (!g.sk) g.sk = g.names.map(() => 0);
+    if (!r.dead && r.ok && !r.sk) g.sk[p] = Math.min(SK_NEED, (g.sk[p] || 0) + 1);   // ✨ 스킬 게이지
   });
   g.res = res; g.phase = "reveal"; g.v++;
 }
@@ -1641,8 +1711,8 @@ function scheduleBots(){
       let c;
       if (q.k === "type") c = right ? q.a : q.a.slice(0, -1) + (q.a.endsWith("e") ? "a" : "e");
       else { const wrong = [...Array(q.o.length).keys()].filter(i => i !== q.a); c = right ? q.a : wrong[Math.floor(Math.random() * wrong.length)]; }
-      const sh = G.hp[p] < 40 && Math.random() < .3;
-      if (submit(G, p, c, delay, sh)) afterSubmit();
+      const use = { sh: G.hp[p] < 40 && Math.random() < .3, po: G.hp[p] < 55 && Math.random() < .35, pw: Math.random() < .12, sk: (G.sk && G.sk[p] >= SK_NEED) && Math.random() < .6 };
+      if (submit(G, p, c, delay, use)) afterSubmit();
     }, delay));
   }
 }
@@ -1659,7 +1729,7 @@ function botEndShout(){
 }
 
 /* ====== 이모티콘 ====== */
-function showEmo(key, e){ emoShow[key] = { e, until: Date.now() + 2600 }; render(); setTimeout(render, 2700); }
+function showEmo(key, e){ emoShow[key] = { e, until: Date.now() + 2600 }; if (cfg.sound) SFX.emo(e); render(); setTimeout(render, 2700); }
 function emoFor(key){ const x = emoShow[key]; return x && x.until > Date.now() ? x.e : ""; }
 function sendEmo(e){
   if (!EMOS.includes(e)) return;
@@ -1737,6 +1807,16 @@ function peekChat(t){
   const el = ensureChat().querySelector("#cpeek"); if (!el) return;
   el.textContent = "💬 " + t; el.className = "show"; clearTimeout(peekT); peekT = setTimeout(() => el.className = "", 3200);
 }
+const TOUCH = (() => { try { return matchMedia("(pointer:coarse)").matches || ("ontouchstart" in window); } catch (e) { return false; } })();
+// 포커스할 때 화면이 저절로 스크롤되지 않게
+function focusNS(i){ try { i.focus({ preventScroll: true }); } catch (e) { try { i.focus(); } catch (e2) {} } }
+// 휴대폰: 채팅 입력 중에는 채팅창을 '보이는 화면' 위쪽에 고정 (키보드에 안 가리고, 화면이 따라 올라가지 않게)
+function fitOverlay(panel){
+  const vv = window.visualViewport;
+  if (!TOUCH || !vv){ panel.removeAttribute("style"); return; }
+  const h = Math.max(160, Math.min(vv.height * 0.62, vv.height - 16));
+  Object.assign(panel.style, { left: (vv.offsetLeft + 8) + "px", top: (vv.offsetTop + 8) + "px", width: (vv.width - 16) + "px", height: h + "px", right: "auto", bottom: "auto" });
+}
 function ensureChat(){
   let el = document.getElementById("chatroot");
   if (el) return el;
@@ -1750,10 +1830,20 @@ function ensureChat(){
   el.addEventListener("click", e => {
     const c = e.target.closest("[data-c]"), q = e.target.closest("[data-q]");
     if (el.classList.contains("mini") && e.target.closest(".clog")){ CHAT.open = true; CHAT.drawn = -1; render(); return; }
-    if (c){ CHAT.open = false; render(); }
+    if (c){ CHAT.open = false; CHAT.auto = false; try { document.activeElement.blur(); } catch (e2) {} render(); }
     else if (q) sendChat(QUICK[parseInt(q.dataset.q, 10)]);
   });
-  el.querySelector("#cform").addEventListener("submit", e => { e.preventDefault(); const i = el.querySelector("#cin"); sendChat(i.value); i.value = ""; i.focus(); });
+  el.querySelector("#cform").addEventListener("submit", e => { e.preventDefault(); const i = el.querySelector("#cin"); sendChat(i.value); i.value = ""; focusNS(i); });
+  const cin = el.querySelector("#cin");
+  // 휴대폰에서 칸 안의 채팅 입력칸을 누르면 → 떠 있는 채팅창으로 바꿔서 입력 (화면이 계속 올라가는 문제 방지)
+  cin.addEventListener("focus", () => {
+    if (!TOUCH || CHAT.open) return;
+    CHAT.open = true; CHAT.auto = true; CHAT.drawn = -1; placeChat(); renderChat();
+  });
+  cin.addEventListener("blur", () => {
+    if (!CHAT.auto) return;
+    setTimeout(() => { if (CHAT.auto && document.activeElement !== cin){ CHAT.auto = false; CHAT.open = false; render(); } }, 300);
+  });
   return el;
 }
 function chatVisible(){ const el = document.getElementById("chatroot"); return CHAT.open || !!(el && el.classList.contains("docked")); }
@@ -1762,7 +1852,8 @@ function placeChat(){
   const el = ensureChat(), panel = el.querySelector(".chatpanel");
   const on = !!ON && (mode === "host" || mode === "guest");
   if (!on){ el.className = ""; return; }
-  if (CHAT.open){ el.className = "show overlay"; panel.removeAttribute("style"); CHAT.unread = 0; return; }
+  if (CHAT.open){ el.className = "show overlay"; fitOverlay(panel); CHAT.unread = 0; return; }
+  if (document.activeElement === el.querySelector("#cin")) return; // 입력 중엔 위치 고정
   const slot = [...document.querySelectorAll(".chatslot")].find(s => s.offsetParent !== null && s.getBoundingClientRect().height > 20);
   if (!slot){ el.className = ""; return; }
   const r = slot.getBoundingClientRect();
@@ -1773,6 +1864,7 @@ function placeChat(){
 }
 window.addEventListener("resize", () => { placeChat(); });
 window.addEventListener("scroll", () => { placeChat(); }, { passive: true });
+if (window.visualViewport){ visualViewport.addEventListener("resize", () => placeChat()); visualViewport.addEventListener("scroll", () => { if (CHAT.open) placeChat(); }); }
 function renderChat(){
   const el = ensureChat();
   const on = !!ON && (mode === "host" || mode === "guest");
@@ -1787,6 +1879,9 @@ const chatBtn = () => ON && (mode === "host" || mode === "guest") ? `<button cla
 /* ====== 🔊 효과음 ====== */
 let actx = null;
 const snd = { k: null, e: null, t: null };
+function audioRaw(){
+  try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); return actx; } catch (e) { return null; }
+}
 function audio(){
   if (!cfg.sound) return null;
   try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); return actx; } catch (e) { return null; }
@@ -1809,8 +1904,98 @@ const SFX = {
   shield(){ tone(520, .18, "sine", .12); tone(780, .22, "sine", .1, .06); },
   win(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, .2, "triangle", .15, i * .12)); },
   lose(){ [392, 330, 262].forEach((f, i) => tone(f, .25, "sine", .12, i * .16)); },
-  pop(){ tone(880, .06, "sine", .08); }
+  pop(){ tone(880, .06, "sine", .08); },
+  skillOn(){ [660, 880, 1320].forEach((f, i) => tone(f, .12, "triangle", .1, i * .05)); },
+  skill(id){
+    if (id === "fire"){ noise(.45, .12, 0, 400, 3000); [196, 262, 392].forEach((f, i) => tone(f, .3, "sawtooth", .07, i * .06)); }
+    else if (id === "heal"){ [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .25, "sine", .09, i * .07)); }
+    else if (id === "wall"){ tone(98, .4, "square", .08); tone(147, .4, "triangle", .1, .05); noise(.15, .08, 0, 200, 800); }
+    else if (id === "drain"){ sweep(880, 220, .5, "sawtooth", .06); sweep(330, 660, .4, "sine", .08, .35); }
+    else if (id === "zap"){ for (let i = 0; i < 6; i++) tone(1200 + Math.random() * 1600, .05, "square", .06, i * .05); noise(.3, .1, .05, 2000, 8000); }
+  },
+  potion(){ sweep(400, 900, .25, "sine", .08); tone(1200, .1, "sine", .06, .25); },
+  // 😂 이모티콘마다 다른 소리
+  emo(e){
+    if (e === "👍") { tone(660, .1, "triangle", .1); tone(990, .16, "triangle", .1, .09); }
+    else if (e === "😂") { for (let i = 0; i < 5; i++) tone(i % 2 ? 700 : 880, .07, "square", .05, i * .09); }
+    else if (e === "😱") { sweep(1400, 300, .6, "sawtooth", .05); }
+    else if (e === "🔥") { noise(.5, .1, 0, 300, 4000); sweep(200, 800, .5, "sawtooth", .04); }
+    else if (e === "😭") { sweep(700, 500, .35, "triangle", .08); sweep(650, 420, .45, "triangle", .08, .35); }
+    else if (e === "👏") { for (let i = 0; i < 4; i++) noise(.06, .2, i * .12, 1500, 6000); }
+    else if (e === "T1~") { [523, 659, 784, 1047].forEach((f, i) => tone(f, .16, "square", .06, i * .08)); tone(1047, .4, "triangle", .1, .32); say("티원~", 1.4); }
+    else if (e === "줴줴야~") { [392, 370, 349, 294].forEach((f, i) => sweep(f, f * .94, i === 3 ? .6 : .25, "sawtooth", .05, i * .26)); say("줴줴야~", .8); }
+  }
 };
+function sweep(f1, f2, d, type, vol, delay){
+  const a = audio(); if (!a) return;
+  try { const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
+    o.type = type || "sine"; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t + d);
+    g.gain.setValueAtTime(vol || .1, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + .05); } catch (e) {}
+}
+let noiseBuf = null;
+function noise(d, vol, delay, lo, hi, out){
+  const a = out ? audioRaw() : audio(); if (!a) return;
+  try {
+    if (!noiseBuf){ noiseBuf = a.createBuffer(1, a.sampleRate, a.sampleRate); const ch = noiseBuf.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1; }
+    const t = a.currentTime + (delay || 0), src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    src.buffer = noiseBuf; f.type = "bandpass"; f.frequency.value = Math.sqrt((lo || 500) * (hi || 5000)); f.Q.value = .8;
+    g.gain.setValueAtTime(vol || .1, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
+    src.connect(f); f.connect(g); g.connect(out || a.destination); src.start(t); src.stop(t + d + .05);
+  } catch (e) {}
+}
+// 🗣️ T1~ / 줴줴야~ 외치기 (기기에 한국어 음성이 있으면)
+function say(txt, pitch){
+  if (!cfg.sound || !window.speechSynthesis) return;
+  try { const u = new SpeechSynthesisUtterance(txt); u.lang = "ko-KR"; u.rate = 1.1; u.pitch = pitch || 1; u.volume = .9; speechSynthesis.speak(u); } catch (e) {}
+}
+
+/* ====== 🎵 배경음악 (직접 만든 짧은 반복곡) ====== */
+const BGM = { gain: null, next: 0, step: 0, kind: "", timer: null };
+const NOTE = n => 440 * Math.pow(2, (n - 69) / 12);
+const SONGS = {
+  // 메뉴·대기실: 느긋한 C - Am - F - G
+  menu:   { bpm: 92,  chords: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]], arp: [0, 1, 2, 1, 0, 1, 2, 1], lead: null, hat: false, bassT: "sine", arpT: "triangle", vol: .05 },
+  // 대결: 신나는 Am - F - C - G
+  battle: { bpm: 128, chords: [[57, 60, 64], [53, 57, 60], [60, 64, 67], [55, 59, 62]], arp: [0, 2, 1, 2, 0, 2, 1, 2], lead: [76, -1, 72, 74, 76, -1, 79, 76, 72, -1, 74, 72, 69, -1, 67, -1], hat: true, bassT: "triangle", arpT: "square", vol: .045 }
+};
+function bgmWant(){
+  if (!cfg.bgm || document.hidden) return "";
+  if (!mode) return "menu";
+  const st = view();
+  if (!st || st.phase === "wait") return "menu";
+  if (st.phase === "end") return "";
+  return "battle";
+}
+function bgmNote(a, f, t, d, type, vol){
+  try { const o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .01); g.gain.exponentialRampToValueAtTime(.0008, t + d);
+    o.connect(g); g.connect(BGM.gain); o.start(t); o.stop(t + d + .05); } catch (e) {}
+}
+function bgmTick(){
+  const want = bgmWant();
+  if (!want){ if (BGM.gain && BGM.kind){ BGM.gain.gain.setTargetAtTime(0, actx.currentTime, .3); BGM.kind = ""; } return; }
+  const a = actx; if (!a || a.state !== "running") return;
+  if (!BGM.gain){ BGM.gain = a.createGain(); BGM.gain.gain.value = 0; BGM.gain.connect(a.destination); }
+  const S = SONGS[want];
+  if (want !== BGM.kind){ BGM.kind = want; BGM.step = 0; BGM.next = a.currentTime + .1; BGM.gain.gain.setTargetAtTime(1, a.currentTime, .4); }
+  if (BGM.next < a.currentTime - .5) BGM.next = a.currentTime + .05;
+  const st16 = 60 / S.bpm / 4;
+  while (BGM.next < a.currentTime + .3){
+    const t = BGM.next, i = BGM.step, bar = Math.floor(i / 16) % S.chords.length, ch = S.chords[bar], k = i % 16;
+    if (k % 2 === 0) bgmNote(a, NOTE(ch[S.arp[(k / 2) % S.arp.length]] + 12), t, st16 * 1.8, S.arpT, S.vol * (S.arpT === "square" ? .35 : .8));
+    if (k % 8 === 0) bgmNote(a, NOTE(ch[0] - 24), t, st16 * 7, S.bassT, S.vol * 1.6);
+    if (S.hat && k % 4 === 2) noise(.05, S.vol * .6, t - a.currentTime, 6000, 12000, BGM.gain);
+    if (S.hat && k % 8 === 0) bgmNote(a, 70, t, .12, "sine", S.vol * 2);        // 쿵
+    if (S.lead && (Math.floor(i / 16) % 8) >= 4){ const n = S.lead[k]; if (n > 0) bgmNote(a, NOTE(n), t, st16 * 1.6, "triangle", S.vol * .9); }
+    BGM.next += st16; BGM.step++;
+  }
+}
+setInterval(bgmTick, 80);
+// 브라우저는 첫 터치/클릭 뒤에만 소리를 낼 수 있어요
+["pointerdown", "keydown", "touchstart"].forEach(ev => window.addEventListener(ev, () => { if (cfg.bgm || cfg.sound) audioRaw(); }, { passive: true }));
+document.addEventListener("visibilitychange", () => { if (document.hidden && actx && BGM.gain){ BGM.gain.gain.setTargetAtTime(0, actx.currentTime, .1); BGM.kind = ""; } });
 function playSounds(st){
   if (!st || !cfg.sound) return;
   const me = myIdx();
@@ -1818,12 +2003,14 @@ function playSounds(st){
     const k = st.gid + ":" + st.qi;
     if (k !== snd.k){
       snd.k = k;
+      st.res.forEach((x, i) => { if (x.sk) setTimeout(() => SFX.skill(x.sk), 150 + i * 120); });
       if (mode === "local" && !G.bot){ (st.res.some(x => x.ok) ? SFX.ok : SFX.bad)(); }
       else if (me !== null && st.res[me] && !st.res[me].dead){
         const r = st.res[me];
         (r.ok ? SFX.ok : SFX.bad)();
         if (r.ok && r.combo >= 2) setTimeout(SFX.combo, 260);
         if (r.sh && r.blocked > 0) setTimeout(SFX.shield, 200); else if (r.taken > 0) setTimeout(SFX.hit, 320);
+        if (r.po) setTimeout(SFX.potion, 450);
       }
     }
   }
@@ -1958,7 +2145,8 @@ function onHostPeers(peers){
           if (typeof c === "string") c = cleanText(c);
           else if (!(Number.isInteger(c) && c >= 0 && c <= 3)) c = null;
           const ms = typeof d.ms === "number" && isFinite(d.ms) ? d.ms : G.tl;
-          if (submit(G, p, c, ms, d.sh === true)) any = true;
+          const du = d.use && typeof d.use === "object" ? d.use : { sh: d.sh === true };
+          if (submit(G, p, c, ms, { sh: du.sh === true, po: du.po === true, pw: du.pw === true, sk: du.sk === true })) any = true;
         }
       }
       if (any) return afterSubmit();
@@ -1988,7 +2176,7 @@ function handoff(peer){
   toast(`👑 ${m.name} 님에게 방장을 넘겼어요 · 방을 만든 내가 나가면 방이 닫혀요`);
   render();
 }
-function hostAnswer(choice, sh){ if (submit(G, 0, choice, Date.now() - qStart, sh)) afterSubmit(); }
+function hostAnswer(choice, use){ if (submit(G, 0, choice, Date.now() - qStart, use)) afterSubmit(); }
 function hostStart(){
   if (!ON || mode !== "host") return;
   if (G.phase === "end"){ // 같은 멤버로 다시: 나간 사람이 있으면 대기실로
@@ -2012,7 +2200,7 @@ function toLobby(){
 function pub(){
   return { gid: G.gid, v: G.v, phase: G.phase, set: G.set, tl: G.tl, names: G.names, chars: G.chars, peers: G.peers, qi: G.qi || 0, total: G.total || 0,
            qid: G.qid == null ? null : G.qid, perm: G.perm, hp: G.hp, got: G.ans.map(a => !!a), res: G.res || null, stats: G.stats,
-           combo: G.combo, items: G.items.map(x => ({ sh: x.sh })), gears: G.gears || [], maxhp: G.maxhp || G.hp.map(() => 100) };
+           combo: G.combo, items: G.items.map(x => ({ sh: x.sh, po: x.po || 0, pw: x.pw || 0 })), sk: G.sk || G.names.map(() => 0), gears: G.gears || [], maxhp: G.maxhp || G.hp.map(() => 100) };
 }
 function broadcast(){ if (mode === "host" && ON && G) setPresence({ st: pub() }); }
 
@@ -2068,7 +2256,8 @@ function sanitizeState(d){
     got: idx.map(i => !!arr(d.got)[i]), res: null,
     stats: idx.map(i => ({ ok: int((arr(d.stats)[i] || {}).ok, 0, 1e6, 0) })),
     combo: idx.map(i => int(arr(d.combo)[i], 0, 1e6, 0)),
-    items: idx.map(i => ({ sh: int((arr(d.items)[i] || {}).sh, 0, 3, 0) })),
+    items: idx.map(i => { const x = arr(d.items)[i] || {}; return { sh: int(x.sh, 0, 3, 0), po: int(x.po, 0, 3, 0), pw: int(x.pw, 0, 3, 0) }; }),
+    sk: idx.map(i => int(arr(d.sk)[i], 0, SK_NEED, 0)),
     gears: idx.map(i => sanitizeGear(arr(d.gears)[i]))
   };
   if (out.phase === "q" || out.phase === "reveal" || out.phase === "end"){ if (n < 2) return null; }
@@ -2080,17 +2269,18 @@ function sanitizeState(d){
   if (Array.isArray(d.res) && d.res.length === n) out.res = d.res.map(r => {
     r = r || {};
     const c = typeof r.choice === "string" ? cleanText(r.choice) : (Number.isInteger(r.choice) && r.choice >= 0 && r.choice <= 3 ? r.choice : null);
-    return { crit: !!r.crit, heal: num(r.heal, 0, 2, 0), choice: c, ms: num(r.ms, 0, 60000, 0), ok: !!r.ok, dmg: num(r.dmg, 0, 40, 0), bonus: num(r.bonus, 0, 20, 0), self: num(r.self, 0, 5, 0), first: !!r.first,
-             dead: !!r.dead, taken: num(r.taken, 0, 100, 0), sh: !!r.sh, blocked: num(r.blocked, 0, 100, 0), combo: int(r.combo, 0, 1e6, 0) };
+    return { po: !!r.po, pw: !!r.pw, sk: SKILLS[r.sk] ? r.sk : "", zap: num(r.zap, 0, 20, 0), crit: !!r.crit, heal: num(r.heal, 0, 80, 0), choice: c, ms: num(r.ms, 0, 60000, 0), ok: !!r.ok, dmg: num(r.dmg, 0, 90, 0), bonus: num(r.bonus, 0, 20, 0), self: num(r.self, 0, 5, 0), first: !!r.first,
+             dead: !!r.dead, taken: num(r.taken, 0, 150, 0), sh: !!r.sh, blocked: num(r.blocked, 0, 100, 0), combo: int(r.combo, 0, 1e6, 0) };
   });
   if (out.phase === "reveal" && !out.res) return null;
   return out;
 }
 function guestIdx(){ if (!R || !ON || !ON.myPeer) return null; const i = R.peers.indexOf(ON.myPeer); return i >= 1 ? i : null; }
-function guestAnswer(choice, sh){
+function guestAnswer(choice, use){
   const me = guestIdx();
   if (!R || R.phase !== "q" || me === null || ON.myAns || R.hp[me] <= 0) return;
-  ON.myAns = { gid: R.gid, qi: R.qi, choice, ms: Math.round(Math.min(R.tl, Date.now() - qStart)), sh: !!sh && R.items[me].sh > 0 };
+  use = use || NO_USE();
+  ON.myAns = { gid: R.gid, qi: R.qi, choice, ms: Math.round(Math.min(R.tl, Date.now() - qStart)), sh: !!use.sh, use: { sh: !!use.sh, po: !!use.po, pw: !!use.pw, sk: !!use.sk } };
   setPresence({ ans: ON.myAns }); render();
 }
 function leave(){
@@ -2125,11 +2315,14 @@ function canAnswer(st){
 }
 function gotOf(st, p){ return mode === "guest" ? st.got[p] : !!G.ans[p]; }
 function myPending(){ if (mode === "host" || solo()) return G.ans[0] ? G.ans[0].choice : undefined; if (mode === "guest") return ON.myAns ? ON.myAns.choice : undefined; return undefined; }
-function myShields(st){ const me = myIdx(); return me !== null && st && st.items && st.items[me] ? st.items[me].sh : 0; }
+function myShields(st){ return myItem(st, "sh"); }
+function myItem(st, k){ const me = myIdx(); return me !== null && st && st.items && st.items[me] ? (st.items[me][k] || 0) : 0; }
+function mySk(st){ const me = myIdx(); return me !== null && st && st.sk ? (st.sk[me] || 0) : 0; }
+function canUse(st, k){ return k === "sk" ? mySk(st) >= SK_NEED : myItem(st, k) > 0; }
 function answerMe(choice){
   const st = view(); if (!canAnswer(st)) return;
-  const sh = myArmed && myShields(st) > 0; myArmed = false;
-  if (mode === "guest") guestAnswer(choice, sh); else hostAnswer(choice, sh);
+  const use = {}; Object.keys(myUse).forEach(k => use[k] = myUse[k] && canUse(st, k)); myUse = NO_USE();
+  if (mode === "guest") guestAnswer(choice, use); else hostAnswer(choice, use);
 }
 function onlineAnswer(disp){
   const st = view(); if (!canAnswer(st) || disp >= st.perm.length) return;
@@ -2186,11 +2379,19 @@ function updateOnStat(){
 }
 
 function render(){
+  $app.style.minHeight = "";
+  const y0 = window.scrollY || 0, h0 = $app.offsetHeight, qk0 = qKey;
+  // 📱 문제 카드·옆 칸·창 안의 스크롤 위치 기억 (누를 때마다 맨 위로 돌아가던 문제)
+  const inner = [];
+  for (const e of $app.querySelectorAll("*")) if (e.scrollTop > 0 && typeof e.className === "string" && e.className.trim()){
+    const cls = e.className.trim(), i = [...$app.getElementsByClassName(cls)].indexOf(e); inner.push([cls, i, e.scrollTop]);
+  }
+  $app.style.minHeight = h0 + "px"; // 다시 그리는 순간 높이가 줄어서 화면이 위로 튀는 것 방지
   const st = view();
   if (st && st.phase === "q"){
     const k = st.gid + ":" + st.qi;
     if (k !== qKey){
-      qKey = k; qStart = Date.now(); myArmed = false; padArmed = [false, false, false]; snd.t = null;
+      qKey = k; qStart = Date.now(); myUse = NO_USE(); padArmed = [false, false, false]; snd.t = null;
       if (ON && mode === "guest" && ON.myAns){ ON.myAns = null; setPresence({ ans: null }); }
       if (solo()) scheduleBots();
     }
@@ -2206,12 +2407,17 @@ function render(){
   if (shopOpen) $app.insertAdjacentHTML("beforeend", shopHTML());
   if (armoryOpen) $app.insertAdjacentHTML("beforeend", armoryHTML());
   const scr = (mode || "menu") + ":" + (!mode ? "" : mode !== "local" && (!st || st.phase === "wait") ? "lobby" : st.phase === "end" ? "end" : "battle");
-  if (scr !== render.scr){ render.scr = scr; try { window.scrollTo(0, 0); } catch (e) {} }
+  if (scr !== render.scr){ render.scr = scr; $app.style.minHeight = ""; try { window.scrollTo(0, 0); } catch (e) {} }
+  else {
+    if (Math.abs((window.scrollY || 0) - y0) > 1){ try { window.scrollTo(0, y0); } catch (e) {} }
+    inner.forEach(([cls, i, top]) => { if (qk0 !== qKey && /\bqcard\b/.test(cls)) return; const el = $app.getElementsByClassName(cls)[i]; if (el) el.scrollTop = top; });
+  }
+  clearTimeout(render.mh); render.mh = setTimeout(() => { $app.style.minHeight = ""; }, 500);
   aimAttacks();
   renderChat(); placeChat();
   mountLive();
   const ti2 = document.getElementById("typein");
-  if (ti2){ if (keep && keep.k === qKey){ ti2.value = keep.v; if (keep.f) ti2.focus(); } else if (!ti2.disabled) ti2.focus(); }
+  if (ti2){ if (keep && keep.k === qKey){ ti2.value = keep.v; if (keep.f) focusNS(ti2); } else if (!ti2.disabled && !TOUCH) focusNS(ti2); }
 }
 // 메뉴 다시 그릴 때 입력 중인 이름·코드를 잃지 않도록
 function readMenuSoft(){ const nm = document.getElementById("nm"); if (nm) readMenu(); const c = document.getElementById("code"); if (c) cfg._code = c.value; }
@@ -2270,7 +2476,7 @@ function armoryHTML(){
     </div>
   </div></div>`;
 }
-const soundBtn = () => `<button class="linkbtn" data-act="sound" title="효과음">${cfg.sound ? "🔊" : "🔇"}</button>`;
+const soundBtn = () => `<button class="linkbtn" data-act="bgm" title="배경음악">${cfg.bgm ? "🎵" : "<s>🎵</s>"}</button><button class="linkbtn" data-act="sound" title="효과음">${cfg.sound ? "🔊" : "🔇"}</button>`;
 function walletBar(){
   return `<div class="wbar"><span class="tok">🪙 ${wallet.tokens}</span><span class="wwhere">${walletWhere === "account" ? "계정에 저장됨" : "이 기기에 저장됨"}</span><span class="wbtns"><button class="mini gold" data-act="shop">🐧 캐릭터</button><button class="mini gold" data-act="armory">🛡️ 장비·뽑기</button></span></div>`;
 }
@@ -2280,7 +2486,7 @@ function shopHTML(){
     <p class="tiny" style="margin:0 0 10px">토큰 얻는 법: 정답 +1 · 게임 완주 +2 · 승리 +7</p>
     <div class="shop">${CHARS.map(c => { const own = wallet.owned.includes(c.id), sel = wallet.sel === c.id;
       return `<button class="sc ${sel ? "sel" : ""} ${own ? "" : "lock"}" data-act="pickch" data-v="${c.id}">
-        <span class="se">${(() => { const im = snap3d(c.id, wallet.gear, "idle"); return im ? `<img src="${im}" alt="">` : c.e; })()}</span><b>${c.name}</b>
+        <span class="se">${(() => { const im = snap3d(c.id, wallet.gear, "idle"); return im ? `<img src="${im}" alt="">` : c.e; })()}</span><b>${c.name}</b><small class="sksh">${skillOf(c.id).e} ${skillOf(c.id).name}</small>
         <small>${sel ? "✔ 사용 중" : own ? "선택하기" : `🪙 ${c.price}${wallet.tokens >= c.price ? " · 잠금 해제" : ""}`}</small></button>`; }).join("")}</div>
   </div></div>`;
 }
@@ -2360,7 +2566,8 @@ function renderMenu(){
           <li>⚔️ 맞히면 상대 HP를 깎아요 (6~12). 빨리 맞힐수록 세게! 한 판이 오래 가도록 약하게 해 뒀어요</li>
           <li>✅ <b>맞힌 사람은 데미지를 안 받아요.</b> 틀리거나 시간이 지나면 맞힌 사람에게 공격받아요. 모두 맞히거나 모두 틀리면 데미지 없음</li>
           <li>🔥 <b>콤보</b>: 연속으로 맞히면 공격력 +2 / +4 / +6</li>
-          <li>🛡️ <b>방어막</b> (게임당 1개): 켜고 답하면 그 문제에서 들어오는 공격을 전부 막아요</li>
+          <li>🎒 <b>아이템</b> (게임당 각 1개, 켜고 답하면 발동): 🛡️ 방어막 = 공격 전부 막기 · 🧪 회복약 = HP 15 회복 · ⚔️ 강타 = 맞히면 공격 2배</li>
+          <li>✨ <b>캐릭터 스킬</b>: 정답 3번 모으면 1번 쓸 수 있어요. 🔥 필살 일격(캥거루·바다악어·용) · 💚 치유의 빛(코알라·바다거북·돌고래) · 🧱 철벽(리틀블루·문어) · 🧛 흡혈(앵무새·부엉이·상어) · ⚡ 전기 충격(청개구리·열대어)</li>
           <li>💡 <b>힌트</b> (게임당 1번): 객관식은 오답 2개 지우기, 스펠링은 글자 절반 공개</li>
           <li>😂 <b>이모티콘</b>: 대결 중에 날려서 상대를 약 올려요</li>
           <li>📒 <b>오답 노트</b>: 게임이 끝나면 틀린 문제와 해설을 다시 볼 수 있어요</li>
@@ -2499,7 +2706,10 @@ function fighter(st, p, me){
     else if (r.ok && st.set.speed){ stTxt = r.first ? `⚡ 먼저 정답! ⚔️ ${r.dmg}${bonus}` : "정답 (한발 늦음)"; stCls = r.first ? "ok" : ""; }
     else if (r.ok){ stTxt = r.dmg ? `정답 ${(r.ms / 1000).toFixed(1)}초 · ⚔️ ${r.dmg}${bonus}` : `정답! 🛡️ 피해 없음`; stCls = "ok"; }
     else { stTxt = r.choice === null ? "시간 초과" : "오답" + (r.self ? ` (-${r.self})` : ""); stCls = "bad"; }
-    if (!r.dead && r.sh) stTxt += r.blocked > 0 ? ` · 🛡️ ${r.blocked} 막음` : " · 🛡️ 사용";
+    if (!r.dead && r.sk === "wall") stTxt += r.blocked > 0 ? ` · 🧱 ${r.blocked} 막음` : " · 🧱 철벽";
+    else if (!r.dead && r.sh) stTxt += r.blocked > 0 ? ` · 🛡️ ${r.blocked} 막음` : " · 🛡️ 사용";
+    if (!r.dead && r.pw) stTxt += r.dmg > 0 ? " · ⚔️강타!" : " · ⚔️";
+    if (!r.dead && r.zap) stTxt += ` · ⚡${r.zap}`;
   }
   const taken = reveal && !st.res[p].dead ? st.res[p].taken : 0;
   const rx = reaction(st, p);
@@ -2507,13 +2717,16 @@ function fighter(st, p, me){
   const shLeft = st.items && st.items[p] ? st.items[p].sh : 0;
   const max = (st.maxhp && st.maxhp[p]) || 100;
   if (reveal && !st.res[p].dead){ const r = st.res[p]; if (r.crit) stTxt += ` <span class="cb">💥치명타</span>`; if (r.heal) stTxt += ` <span class="hl">💚+${r.heal}</span>`; }
+  const skN = st.sk ? (st.sk[p] || 0) : 0, skU = reveal && st.res[p] && st.res[p].sk ? SKILLS[st.res[p].sk] : null;
   return `<div class="fc f${p}" data-p="${p}" style="--pc:${PCOL[p]}">
     ${taken > 0 ? `<span class="dmg">-${taken}</span>` : ""}${combo}
+    ${skU ? `<span class="skfx">${skU.e} ${skU.name}!</span>` : ""}
+    ${reveal && st.res[p] && st.res[p].po ? `<span class="pofx">🧪</span>` : ""}
     ${rx.spark ? `<span class="spark">${rx.spark}</span>` : ""}
     <div class="avwrap" ${rx.tgt >= 0 ? `data-tgt="${rx.tgt}"` : ""}>${avatar(st.chars[p], rx.cls, rx.bub, 0, emoFor(emoKey(st, p)), st.gears && st.gears[p])}</div>
     <div class="nm">${esc(st.names[p])}${me === p && mode !== "local" ? '<span class="me">나</span>' : ""}</div>
     <div class="hp"><i style="width:${Math.round(st.hp[p] / max * 100)}%"></i></div>
-    <div class="hpn">HP ${st.hp[p]}${max > 100 ? "/" + max : ""}${shLeft ? " · 🛡️" + shLeft : ""}</div>
+    <div class="hpn">HP ${st.hp[p]}${max > 100 ? "/" + max : ""}${shLeft ? " · 🛡️" + shLeft : ""}${mode === "local" && !solo() ? "" : ` · <span class="skn ${skN >= SK_NEED ? "rd" : ""}">${skillOf(st.chars[p]).e}${skN >= SK_NEED ? "준비!" : skN + "/" + SK_NEED}</span>`}</div>
     <div class="st ${stCls}">${stTxt}</div>
   </div>`;
 }
@@ -2557,10 +2770,12 @@ function renderBattle(st){
           <button class="padsh ${padArmed[p] ? "on" : ""}" data-act="padsh" data-p="${p}" ${done || !sh ? "disabled" : ""}>🛡️ 방어막 ${sh ? (padArmed[p] ? "켜짐" : "×" + sh) : "없음"}</button>
           <div class="pst">${!alive(G, p) ? "💫 탈락" : G.ans[p] ? "답 제출 ✓" : ""}</div></div>`; }).join("")}
     </div>` : "";
+  const SKm = me !== null ? skillOf(st.chars[me]) : null, skv = mySk(st), skReady = skv >= SK_NEED;
   const items = !multiLocal && me !== null && st.phase === "q" && st.hp[me] > 0 ? `
-    <div class="items">
-      <button class="itm" data-act="hint" ${hintAvail(st) ? "" : "disabled"}>💡 힌트 <small>${q.k === "ox" ? "O/X는 불가" : q.k === "type" ? "글자 반 공개" : "오답 2개 지우기"} · ${hintLeft(st)}개</small></button>
-      <button class="itm ${myArmed ? "on" : ""}" data-act="arm" ${can && myShields(st) > 0 ? "" : "disabled"}>🛡️ 방어막 <small>${myArmed ? "켜짐! 답하면 발동" : "공격 1번 막기"} · ${myShields(st)}개</small></button>
+    <div class="items i5">
+      <button class="itm" data-act="hint" ${hintAvail(st) ? "" : "disabled"}><span class="ie">💡</span><span class="il">힌트 ${hintLeft(st)}</span><small>${q.k === "ox" ? "O/X 불가" : q.k === "type" ? "글자 반 공개" : "오답 2개 지우기"}</small></button>
+      ${Object.entries(BITEMS).map(([k, b]) => `<button class="itm ${myUse[k] ? "on" : ""}" data-act="use" data-k="${k}" ${can && myItem(st, k) > 0 ? "" : "disabled"}><span class="ie">${b.e}</span><span class="il">${b.name} ${myItem(st, k)}</span><small>${myUse[k] ? "켜짐! 답하면 발동" : b.d}</small></button>`).join("")}
+      <button class="itm skb ${skReady ? "ready" : ""} ${myUse.sk ? "on" : ""}" data-act="use" data-k="sk" ${can && skReady ? "" : "disabled"} title="${esc(SKm.d)}"><span class="ie">${SKm.e}</span><span class="il">${skReady ? SKm.name : "스킬 " + skv + "/" + SK_NEED}</span><small>${myUse.sk ? "켜짐! 답하면 발동" : SKm.d}</small><i class="skbar" style="width:${Math.round(skv / SK_NEED * 100)}%"></i></button>
     </div>` : "";
   const crowd = ON && mode !== "local" ? ON.members.filter(m => !st.peers.includes(m.peer) && emoFor(m.peer)) : [];
   const ansTxt = q.k === "mc" ? `${MARKS[st.perm.indexOf(q.a)]} ${fmtOpt(q.o[q.a])}` : esc(q.k === "ox" ? q.o[q.a] : q.a);
@@ -2674,10 +2889,11 @@ $app.addEventListener("click", e => {
   else if (act === "ans") onlineAnswer(i);
   else if (act === "pad") localAnswer(parseInt(t.dataset.p, 10), i);
   else if (act === "padsh"){ const p = parseInt(t.dataset.p, 10); if (G && G.phase === "q" && !G.ans[p] && G.items[p].sh > 0){ padArmed[p] = !padArmed[p]; render(); } }
-  else if (act === "arm"){ const st = view(); if (canAnswer(st) && myShields(st) > 0){ myArmed = !myArmed; if (myArmed) SFX.shield(); render(); } }
+  else if (act === "use"){ const st = view(), k = t.dataset.k; if (k in myUse && canAnswer(st) && canUse(st, k)){ myUse[k] = !myUse[k]; if (myUse[k]) (k === "sk" ? SFX.skillOn : k === "sh" ? SFX.shield : SFX.pop)(); render(); } }
   else if (act === "hint") useHint();
   else if (act === "emo") sendEmo(t.dataset.v);
-  else if (act === "chat"){ CHAT.open = !CHAT.open; if (CHAT.open){ CHAT.unread = 0; CHAT.drawn = -1; } render(); if (CHAT.open){ const i = document.getElementById("cin"); if (i && window.innerWidth > 700) i.focus(); } }
+  else if (act === "chat"){ CHAT.open = !CHAT.open; CHAT.auto = false; if (CHAT.open){ CHAT.unread = 0; CHAT.drawn = -1; } render(); if (CHAT.open){ const i = document.getElementById("cin"); if (i && !TOUCH && window.innerWidth > 700) focusNS(i); } }
+  else if (act === "bgm"){ cfg.bgm = !cfg.bgm; saveCfg(); audioRaw(); render(); }
   else if (act === "sound"){ cfg.sound = !cfg.sound; saveCfg(); if (cfg.sound) SFX.pop(); render(); }
   else if (act === "typesub") typeSubmit();
   else if (act === "toggleopp") toggleOpp(t.dataset.peer);
