@@ -488,6 +488,15 @@ body{overflow-x:clip}
   .b-main .bar .btn{padding:6px 12px;font-size:13px}
 }
 @media (max-width:380px){.emobar{flex-wrap:wrap;overflow:visible;gap:4px}.battle .emob{font-size:16px;padding:3px 6px}.battle .emob.txt{font-size:11px!important}}
+
+/* v14: 칼 휘두르기 · 3D 막기 (6프레임 그림 띠) */
+.ava .spr{display:block;width:1.9em;height:1.9em;background-repeat:no-repeat;background-size:auto 100%;filter:drop-shadow(0 .05em .06em rgba(0,0,0,.45))}
+.ava .spr.sw{animation:sprPlay .7s steps(5) .05s both}
+.ava .spr.gd{animation:sprPlay .6s steps(5) .15s both}
+@keyframes sprPlay{from{background-position:0 0}to{background-position:100% 0}}
+.battle .fc.f0 .spr{transform:scaleX(-1)}
+.battle .fc.faceR .spr{transform:scaleX(-1)}
+.battle .fc.faceL .spr{transform:none}
 </style>
 </head>
 <body>
@@ -995,10 +1004,10 @@ const ITEM = Object.fromEntries(ITEMS.map(x => [x.id, x]));
 /* 장비 특성 (약하게): 장비 1개당 특성 1개, 종류마다 최대치가 있음 */
 const PERK_INFO = {
   hp:   { icon: "❤️", name: "최대 HP",   cap: 10, fmt: v => `+${v}` },
-  atk:  { icon: "⚔️", name: "공격력",    cap: 3,  fmt: v => `+${v}` },
+  atk:  { icon: "⚔️", name: "공격력",    cap: 2,  fmt: v => `+${v}` },
   def:  { icon: "🛡️", name: "받는 피해", cap: 2,  fmt: v => `-${v}` },
   heal: { icon: "💚", name: "정답 회복", cap: 2,  fmt: v => `+${v}` },
-  crit: { icon: "💥", name: "치명타",    cap: 15, fmt: v => `${v}% (+5)` }
+  crit: { icon: "💥", name: "치명타",    cap: 15, fmt: v => `${v}% (+3)` }
 };
 const PERKS = {
   "beginner.head": ["hp", 2], "beginner.body": ["hp", 3], "beginner.weapon": ["atk", 1], "beginner.shield": ["def", 1],
@@ -1117,7 +1126,9 @@ function buildArmor(slot, id){
   return g;
 }
 
-function buildChar(id, gear, pose){
+// 프레임 보간용
+function keyed(t, ks){ for (let i = 1; i < ks.length; i++) if (t <= ks[i][0]){ const [t0, a] = ks[i - 1], [t1, b] = ks[i]; const u = (t - t0) / (t1 - t0 || 1); const e = u * u * (3 - 2 * u); return a + (b - a) * e; } return ks[ks.length - 1][1]; }
+function buildChar(id, gear, pose, t){
   const S = SPEC[id] || SPEC.penguin, g = new THREE.Group();
   const B = S.body, dark = darker(B);
   // 몸통
@@ -1176,7 +1187,8 @@ function buildChar(id, gear, pose){
   if (S.crest) [-.12, 0, .12].forEach((x, i) => head.add(put(mesh(new THREE.ConeGeometry(.07, .4, 10), i === 1 ? S.crest : S.body), x, .7, -.08, 1, 1, 1, -.4, 0, -x * 2)));
   if (S.dorsalHead) head.add(put(mesh(new THREE.ConeGeometry(.3, .45, 3), S.fin), 0, .65, -.1, .25, 1, 1));
   // 팔 (포즈)
-  const up = pose === "happy", atk = pose === "attack", blk = pose === "block";
+  const swing = pose === "swing", guard = pose === "guard";
+  const up = pose === "happy", atk = pose === "attack", blk = pose === "block" || (guard && t >= .3);
   const hasShield = gear && gear.shield;
   const arms = {};
   [-1, 1].forEach(s => {
@@ -1185,18 +1197,25 @@ function buildChar(id, gear, pose){
     if (atk && s === -1) a.rotation.set(.35, 0, -.5);
     if (blk && !hasShield) a.rotation.set(-1.25, 0, -s * .75);              // 두 팔을 앞으로 모아 막기
     if (blk && hasShield) a.rotation.set(-.3, 0, s === -1 ? .95 : .25);
+    // ⚔️ 칼 휘두르기: 뒤로 들어 올렸다가(와인드업) 앞으로 내려치고 따라 내림
+    if (swing && s === 1) a.rotation.set(keyed(t, [[0, -.4], [.3, -3.3], [.55, -1.15], [.78, -.35], [1, -.5]]), 0, keyed(t, [[0, .3], [.3, .15], [.6, -.25], [1, -.15]]));
+    if (swing && s === -1) a.rotation.set(keyed(t, [[0, 0], [.3, .4], [.6, -.5], [1, -.3]]), 0, -.45);
+    // 🛡️ 막기 준비: 방패 팔을 들어 올리는 중
+    if (guard && t < .3){ const u = t / .3; a.rotation.set(-.6 * u, 0, s === -1 ? .3 + .65 * u : .3); }
     if (S.arms === "flipper") a.add(put(sph(.3, B), 0, -.3, 0, .32, 1, .6));
     else if (S.arms === "wing") a.add(put(sph(.32, S.wing || B), 0, -.3, -.02, .3, 1.05, .7));
     else if (S.arms === "fin") a.add(put(sph(.24, S.fin || B), 0, -.22, 0, .3, .9, .7));
     else if (S.arms === "paw"){ a.add(put(sph(.17, B), 0, -.26, 0, .85, 1.5, .85)); a.add(put(sph(.11, S.belly), 0, -.5, .02)); }
   });
+  if (swing) g.rotation.x = keyed(t, [[0, 0], [.3, -.12], [.55, .22], [.8, .12], [1, 0]]);
+  if (guard){ g.rotation.x = keyed(t, [[0, 0], [.45, 0], [.6, -.2], [.8, -.08], [1, 0]]); g.position.z = keyed(t, [[0, 0], [.5, 0], [.62, -.25], [1, -.1]]); }
   // 장비
   if (gear){
     for (const [slot] of SLOTS){
       const id = gear[slot]; if (!id) continue;
       const a = buildArmor(slot, id); if (!a) continue;
       if (slot === "head"){ a.position.y = .02; head.add(a); }
-      else if (slot === "weapon"){ a.position.set(0, -.52, .12); a.rotation.x = atk ? 1.6 : up ? -.2 : -1.25; (arms[1] || g).add(a); }
+      else if (slot === "weapon"){ a.position.set(0, -.52, .12); a.rotation.x = swing ? Math.PI : atk ? 1.6 : up ? -.2 : -1.25; (arms[1] || g).add(a); }
       else if (slot === "shield"){
         if (blk){ a.position.set(-.05, 1.05, .95); a.rotation.set(0, -Math.PI / 2, 0); a.scale.setScalar(1.25); g.add(a); }   // 방패를 몸 앞으로
         else { a.position.set(-.1, -.36, .12); a.rotation.y = .25; (arms[-1] || g).add(a); }
@@ -1237,6 +1256,26 @@ function snap3d(id, gear, pose){
     M3.scene.remove(grp); grp.traverse(o => { if (o.geometry) o.geometry.dispose(); });
     M3.cache.set(key, url);
     if (M3.cache.size > 120) M3.cache.delete(M3.cache.keys().next().value);
+    return url;
+  } catch (e) { return null; }
+}
+// 연속 동작(휘두르기·막기)을 6장짜리 그림 띠로 찍어 두고 CSS로 넘겨서 움직이게 함
+function sprite3d(id, gear, kind){
+  if (!HAS3D) return null;
+  const key = "spr|" + kind + "|" + id + "|" + gearKey(gear);
+  if (M3.cache.has(key)) return M3.cache.get(key);
+  try {
+    if (!snap3d(id, gear, "idle")) return null;   // 렌더러 준비
+    const N = 6, S = 240, c = document.createElement("canvas"); c.width = N * S; c.height = S;
+    const cx = c.getContext("2d");
+    for (let i = 0; i < N; i++){
+      const grp = buildChar(id, gear, kind, i / (N - 1)); grp.rotation.y = -.42;
+      M3.scene.add(grp); M3.r.render(M3.scene, M3.cam);
+      cx.drawImage(M3.r.domElement, i * S, 0, S, S);
+      M3.scene.remove(grp); grp.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    }
+    const url = c.toDataURL("image/png");
+    M3.cache.set(key, url);
     return url;
   } catch (e) { return null; }
 }
@@ -1515,22 +1554,24 @@ function finalize(g){
     const choice = a ? a.choice : null, ms = a ? a.ms : tl;
     return { choice, ms, ok: !dead && judge(q, choice), dmg: 0, bonus: 0, self: 0, first: false, dead, taken: 0, sh: !!(a && a.sh), blocked: 0, combo: 0 }; });
   res.forEach((r, p) => { if (r.dead) return; g.combo[p] = r.ok ? g.combo[p] + 1 : 0; r.combo = g.combo[p]; });
+  // 맞힌 사람만 공격하고, 공격받는 건 틀리거나 시간 초과한 사람뿐. 모두 맞히거나 모두 틀리면 데미지 없음
+  const losers = res.filter(r => !r.dead && !r.ok).length;
   if (!g.set.speed){
-    res.forEach(r => { if (r.ok) r.dmg = Math.round((10 + 10 * Math.max(0, 1 - r.ms / tl)) * sc); });
+    res.forEach(r => { if (r.ok && losers) r.dmg = Math.round((6 + 6 * Math.max(0, 1 - r.ms / tl)) * sc); });   // 일반: 6~12 (빠를수록 큼)
   } else {
     const okP = res.map((r, p) => r.ok ? p : -1).filter(p => p >= 0);
-    if (okP.length){ const w = okP.reduce((a, b) => res[b].ms < res[a].ms ? b : a); res[w].dmg = Math.round(25 * sc); res[w].first = true; }
-    res.forEach(r => { if (!r.dead && !r.ok && r.choice !== null) r.self = 5; });
+    if (okP.length && losers){ const w = okP.reduce((a, b) => res[b].ms < res[a].ms ? b : a); res[w].dmg = Math.round(15 * sc); res[w].first = true; }   // 스피드: 먼저 맞힌 사람 15
+    res.forEach(r => { if (!r.dead && !r.ok && r.choice !== null) r.self = 3; });
   }
-  // 🔥 콤보 보너스: 2연속부터 +3, 최대 +9
-  res.forEach(r => { if (r.dmg > 0 && r.combo >= 2){ r.bonus = Math.round(Math.min(r.combo - 1, 3) * 3 * sc); r.dmg += r.bonus; } });
+  // 🔥 콤보 보너스: 2연속부터 +2, 최대 +6
+  res.forEach(r => { if (r.dmg > 0 && r.combo >= 2){ r.bonus = Math.round(Math.min(r.combo - 1, 3) * 2 * sc); r.dmg += r.bonus; } });
   // ⚙️ 장비 특성: 공격력 +, 치명타(+5)
   const PK = p => (g.perks && g.perks[p]) || perksOf(null);
-  res.forEach((r, p) => { if (r.dmg > 0){ r.dmg += PK(p).atk; if (PK(p).crit && Math.random() * 100 < PK(p).crit){ r.dmg += 5; r.crit = true; } } });
+  res.forEach((r, p) => { if (r.dmg > 0){ r.dmg += PK(p).atk; if (PK(p).crit && Math.random() * 100 < PK(p).crit){ r.dmg += 3; r.crit = true; } } });
   // 받는 피해: 공격마다 방어력만큼 줄임(최소 1) · 🛡️ 방어막이면 전부 막음
   res.forEach((r, p) => {
     if (r.dead) return;
-    let inc = 0; res.forEach((o, k) => { if (k !== p && o.dmg > 0) inc += Math.max(1, o.dmg - PK(p).def); });
+    let inc = 0; if (!r.ok) res.forEach((o, k) => { if (k !== p && o.dmg > 0) inc += Math.max(1, o.dmg - PK(p).def); });
     if (r.sh){ r.blocked = inc; inc = 0; } r.taken = inc + r.self;
   });
   res.forEach((r, p) => {
@@ -2039,7 +2080,7 @@ function sanitizeState(d){
   if (Array.isArray(d.res) && d.res.length === n) out.res = d.res.map(r => {
     r = r || {};
     const c = typeof r.choice === "string" ? cleanText(r.choice) : (Number.isInteger(r.choice) && r.choice >= 0 && r.choice <= 3 ? r.choice : null);
-    return { crit: !!r.crit, heal: num(r.heal, 0, 2, 0), choice: c, ms: num(r.ms, 0, 60000, 0), ok: !!r.ok, dmg: num(r.dmg, 0, 50, 0), bonus: num(r.bonus, 0, 20, 0), self: num(r.self, 0, 5, 0), first: !!r.first,
+    return { crit: !!r.crit, heal: num(r.heal, 0, 2, 0), choice: c, ms: num(r.ms, 0, 60000, 0), ok: !!r.ok, dmg: num(r.dmg, 0, 40, 0), bonus: num(r.bonus, 0, 20, 0), self: num(r.self, 0, 5, 0), first: !!r.first,
              dead: !!r.dead, taken: num(r.taken, 0, 100, 0), sh: !!r.sh, blocked: num(r.blocked, 0, 100, 0), combo: int(r.combo, 0, 1e6, 0) };
   });
   if (out.phase === "reveal" && !out.res) return null;
@@ -2180,6 +2221,9 @@ function avatar(id, cls, bubble, size, emote, gear, live){
   const pose = /\batk\b/.test(cls || "") ? "attack" : /\bblk\b/.test(cls || "") ? "block" : /happy|win/.test(cls || "") ? "happy" : "idle";
   let inner = c.e, is3d = "";
   if (live && HAS3D){ inner = `<span class="live3d ${live === "prio" ? "prio" : ""}" data-ch="${esc(id)}" data-gear="${esc(JSON.stringify(sanitizeGear(gear)))}"></span>`; is3d = " is3d"; }
+  else if ((pose === "attack" || pose === "block") && sprite3d(id, gear, pose === "attack" ? "swing" : "guard")){
+    inner = `<span class="spr ${pose === "attack" ? "sw" : "gd"}" style="background-image:url(${sprite3d(id, gear, pose === "attack" ? "swing" : "guard")})"></span>`; is3d = " is3d";
+  }
   else { const img = snap3d(id, gear, pose); if (img){ inner = `<img class="m3d" src="${img}" alt="${esc(c.name)}" draggable="false">`; is3d = " is3d"; } }
   return `<div class="ava ${cls || ""}${is3d}" style="${size ? `font-size:${size}px` : ""}"><span class="emo">${inner}</span>${bubble ? `<span class="bub">${esc(bubble)}</span>` : ""}${emote ? `<span class="emote${isTxtEmo(emote) ? " txt" : ""}">${esc(emote)}</span>` : ""}</div>`;
 }
@@ -2209,7 +2253,7 @@ function armoryHTML(){
       <div class="armprev">
         ${avatar(wallet.sel, "idle", "", 150, "", g, "prio")}
         <div class="tiny" style="text-align:center;margin:0">드래그하면 돌아가요 · ${fs ? `✨ <b style="color:${RARITY[SETS[fs].rar].color}">${esc(SETS[fs].name)} 세트 완성!</b>` : "같은 세트를 다 입으면 ✨오라가 생겨요"}</div>
-        <div class="perkbox"><b>⚙️ 내 특성</b> ${perkSummary(perksOf(g))}<div class="tiny" style="margin:4px 0 0">특성은 약하게 만들었어요 · 최대치: ❤️+10 ⚔️+3 🛡️-2 💚+2 💥15%</div></div>
+        <div class="perkbox"><b>⚙️ 내 특성</b> ${perkSummary(perksOf(g))}<div class="tiny" style="margin:4px 0 0">특성은 약하게 만들었어요 · 최대치: ❤️+10 ⚔️+2 🛡️-2 💚+2 💥15%</div></div>
         <div class="slots">${SLOTS.map(([s, n, ic]) => `<div class="slot">${g[s] ? itemChip(g[s], `<button class="x" data-act="unequip" data-v="${s}">✕</button>`) : `<span class="ichip empty"><i>${ic}</i><span><b>${n}</b><small>비어 있음</small></span></span>`}</div>`).join("")}</div>
       </div>
       <div class="armside">
@@ -2256,7 +2300,7 @@ function settingsHTML(set, editable){
       <button class="seg ${!set.speed ? "on" : ""}" data-act="setspeed" data-v="0" ${dis}>🐢 일반</button>
       <button class="seg ${set.speed ? "on" : ""}" data-act="setspeed" data-v="1" ${dis}>⚡ 스피드</button>
     </div>
-    <p class="tiny" style="margin:0 0 6px">${set.speed ? "⚡ 스피드: 시간 짧음 · <b>가장 먼저 맞힌 사람만</b> 공격 · 틀리면 내 HP -5" : "🐢 일반: 모두 답하고 · 맞히면 빠를수록 세게 공격"}${set.players === 3 ? " · 3인은 공격이 상대 두 명에게 나눠 들어가요" : ""}</p>
+    <p class="tiny" style="margin:0 0 6px">${set.speed ? "⚡ 스피드: 시간 짧음 · <b>가장 먼저 맞힌 사람만</b> 공격 · 틀리면 내 HP -3 · 공격 15" : "🐢 일반: 모두 답하고 · 맞히면 빠를수록 세게 공격 (6~12)"}${set.players === 3 ? " · 3인은 공격이 상대 두 명에게 나눠 들어가요" : ""}</p>
     <div class="row"><span class="lbl">제한 시간</span>
       ${TIMES.map(t => `<button class="seg ${set.time === t ? "on" : ""}" data-act="settime" data-v="${t}" ${dis}>${t}초</button>`).join("")}
     </div>
@@ -2313,8 +2357,9 @@ function renderMenu(){
       ${settingsHTML(cfg.set, true)}
       <details class="rules"><summary>📜 게임 규칙 · 아이템</summary>
         <ul>
-          <li>⚔️ 맞히면 상대 HP를 깎아요. 빨리 맞힐수록 세게!</li>
-          <li>🔥 <b>콤보</b>: 연속으로 맞히면 공격력 +3 / +6 / +9</li>
+          <li>⚔️ 맞히면 상대 HP를 깎아요 (6~12). 빨리 맞힐수록 세게! 한 판이 오래 가도록 약하게 해 뒀어요</li>
+          <li>✅ <b>맞힌 사람은 데미지를 안 받아요.</b> 틀리거나 시간이 지나면 맞힌 사람에게 공격받아요. 모두 맞히거나 모두 틀리면 데미지 없음</li>
+          <li>🔥 <b>콤보</b>: 연속으로 맞히면 공격력 +2 / +4 / +6</li>
           <li>🛡️ <b>방어막</b> (게임당 1개): 켜고 답하면 그 문제에서 들어오는 공격을 전부 막아요</li>
           <li>💡 <b>힌트</b> (게임당 1번): 객관식은 오답 2개 지우기, 스펠링은 글자 절반 공개</li>
           <li>😂 <b>이모티콘</b>: 대결 중에 날려서 상대를 약 올려요</li>
@@ -2412,8 +2457,7 @@ function fightFresh(st){
 function fightTarget(st, p){
   const r = st.res[p]; if (!r || r.dead || !(r.dmg > 0)) return -1;
   let best = -1;
-  st.res.forEach((o, k) => { if (k !== p && !o.dead && (o.taken > 0 || o.blocked > 0) && !(o.dmg > 0) && best < 0) best = k; });
-  if (best < 0) st.res.forEach((o, k) => { if (k !== p && !o.dead && best < 0) best = k; });
+  st.res.forEach((o, k) => { if (k !== p && !o.dead && !o.ok && best < 0) best = k; });
   return best;
 }
 function reaction(st, p){
@@ -2453,7 +2497,7 @@ function fighter(st, p, me){
     const bonus = r.bonus ? ` <span class="cb">🔥+${r.bonus}</span>` : "";
     if (r.dead){ stTxt = "💫 탈락"; stCls = "bad"; }
     else if (r.ok && st.set.speed){ stTxt = r.first ? `⚡ 먼저 정답! ⚔️ ${r.dmg}${bonus}` : "정답 (한발 늦음)"; stCls = r.first ? "ok" : ""; }
-    else if (r.ok){ stTxt = `정답 ${(r.ms / 1000).toFixed(1)}초 · ⚔️ ${r.dmg}${bonus}`; stCls = "ok"; }
+    else if (r.ok){ stTxt = r.dmg ? `정답 ${(r.ms / 1000).toFixed(1)}초 · ⚔️ ${r.dmg}${bonus}` : `정답! 🛡️ 피해 없음`; stCls = "ok"; }
     else { stTxt = r.choice === null ? "시간 초과" : "오답" + (r.self ? ` (-${r.self})` : ""); stCls = "bad"; }
     if (!r.dead && r.sh) stTxt += r.blocked > 0 ? ` · 🛡️ ${r.blocked} 막음` : " · 🛡️ 사용";
   }
