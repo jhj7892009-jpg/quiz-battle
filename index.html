@@ -1333,12 +1333,21 @@ function sanitizeSet(s){
   if (!s || typeof s !== "object" || !GAMES[s.game]) return null;
   const sec = Array.isArray(s.sec) ? [1,2,3].filter(x => s.sec.includes(x)) : [];
   const cats = Array.isArray(s.cats) ? CATS.filter(x => s.cats.includes(x)) : [];
-  return { game: s.game, speed: !!s.speed, n: NS.includes(s.n) ? s.n : 15, sec: sec.length ? sec : [1,2,3], players: s.players === 3 ? 3 : 2, cats: cats.length ? cats : CATS.slice() };
+  return { game: s.game, speed: !!s.speed, n: NS.includes(s.n) ? s.n : 15, sec: sec.length ? sec : [1,2,3], players: s.players === 3 ? 3 : 2, cats: cats.length ? cats : CATS.slice(),
+           time: TIMES.includes(s.time) ? s.time : 20, ramp: s.ramp !== false };
 }
+/* ⏱ 제한 시간: 고른 초에서 시작해서, '점점 빨라지기'를 켜면 문제마다 2%씩 줄어듦 (처음의 60%까지만, 최소 4초) */
+const TIMES = [8, 10, 15, 20, 25, 30, 45, 60];
+function tlFor(set, qi){
+  let t = (set.time || 20) * 1000 * (set.speed ? .6 : 1);
+  if (set.ramp) t *= Math.max(.6, 1 - .02 * (qi || 0));
+  return Math.max(4000, Math.round(t / 500) * 500);
+}
+const tlMin = set => tlFor(set, 999);
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
-let cfg = { name: "", name2: "", name3: "", set: { game: "mc", speed: false, n: 15, sec: [1,2,3], players: 2, cats: CATS.slice() } };
+let cfg = { name: "", name2: "", name3: "", set: { game: "mc", speed: false, n: 15, sec: [1,2,3], players: 2, cats: CATS.slice(), time: 20, ramp: true } };
 cfg.sound = true;
 { const sv = lsGet("bq-cfg4"); if (sv && typeof sv === "object"){ ["name","name2","name3"].forEach(k => { const v = cleanName(sv[k]); cfg[k] = v === "?" ? "" : v; }); const s = sanitizeSet(sv.set); if (s){ if (s.cats.length === 4 && !s.cats.includes("ABC")) s.cats = CATS.slice(); cfg.set = s; } cfg.sound = sv.sound !== false; } }
 function saveCfg(){ lsSet("bq-cfg4", cfg); }
@@ -1476,7 +1485,7 @@ const BOT_LV = {
 /* ====== 게임 엔진 (2~3인) ====== */
 function newGame(names, chars, peers, set, extra){
   const pool = poolFor(set), order = shuffle(pool), n = names.length;
-  const g = Object.assign({ gid: makeCode(6), v: 1, phase: "q", set: { ...set, sec: set.sec.slice(), cats: set.cats.slice() }, tl: GAMES[set.game].tl[set.speed ? 1 : 0],
+  const g = Object.assign({ gid: makeCode(6), v: 1, phase: "q", set: { ...set, sec: set.sec.slice(), cats: set.cats.slice() }, tl: tlFor(set, 0),
            names: names.slice(), chars: chars.slice(), peers: peers.slice(), qi: 0, total: set.n === 0 ? 0 : Math.min(set.n, pool.length),
            order, qid: order[0], perm: permFor(QS[order[0]]), hp: Array(n).fill(100), ans: Array(n).fill(null), res: null,
            stats: names.map(() => ({ ok: 0 })), combo: Array(n).fill(0), items: names.map(() => ({ sh: 1 })) }, extra || {});
@@ -1486,7 +1495,7 @@ function newGame(names, chars, peers, set, extra){
   return g;
 }
 function waitState(names, chars, peers, set){
-  return { maxhp: names.map(() => 100), gid: makeCode(6), v: 1, phase: "wait", set: { ...set, sec: set.sec.slice(), cats: set.cats.slice() }, tl: GAMES[set.game].tl[set.speed ? 1 : 0],
+  return { maxhp: names.map(() => 100), gid: makeCode(6), v: 1, phase: "wait", set: { ...set, sec: set.sec.slice(), cats: set.cats.slice() }, tl: tlFor(set, 0),
            names, chars, peers, qi: 0, total: 0, order: [], qid: null, perm: [], hp: names.map(() => 100), ans: names.map(() => null), res: null,
            stats: names.map(() => ({ ok: 0 })), combo: names.map(() => 0), items: names.map(() => ({ sh: 1 })), gears: names.map(() => ({})) };
 }
@@ -1541,6 +1550,7 @@ function advance(g){
     g.order = g.order.concat(more);
   }
   g.qid = g.order[g.qi]; g.perm = permFor(QS[g.qid]); g.ans = g.names.map(() => null); g.res = null; g.phase = "q"; g.v++;
+  g.tl = tlFor(g.set, g.qi);   // ⏱ 문제마다 아주 조금씩 빨라짐
 }
 function ranking(st){ return st.names.map((_, p) => p).sort((a, b) => (st.hp[b] - st.hp[a]) || (st.stats[b].ok - st.stats[a].ok)); }
 function winnerOf(st){ const r = ranking(st); if (r.length > 1 && st.hp[r[0]] === st.hp[r[1]] && st.stats[r[0]].ok === st.stats[r[1]].ok) return -1; return r[0]; }
@@ -2007,7 +2017,7 @@ function sanitizeState(d){
   const n = Math.max(1, Math.min(3, arr(d.names).length));
   const idx = [...Array(n).keys()];
   const out = {
-    gid: String(d.gid || "").slice(0, 12), v: int(d.v, 0, 1e9, 0), phase: d.phase, set, tl: int(d.tl, 1000, 60000, GAMES[set.game].tl[0]),
+    gid: String(d.gid || "").slice(0, 12), v: int(d.v, 0, 1e9, 0), phase: d.phase, set, tl: int(d.tl, 1000, 90000, tlFor(set, 0)),
     names: idx.map(i => cleanName(arr(d.names)[i])),
     chars: idx.map(i => CH[arr(d.chars)[i]] ? arr(d.chars)[i] : "penguin"),
     peers: idx.map(i => arr(d.peers)[i] == null ? "" : String(arr(d.peers)[i]).slice(0, 64)),
@@ -2246,7 +2256,14 @@ function settingsHTML(set, editable){
       <button class="seg ${!set.speed ? "on" : ""}" data-act="setspeed" data-v="0" ${dis}>🐢 일반</button>
       <button class="seg ${set.speed ? "on" : ""}" data-act="setspeed" data-v="1" ${dis}>⚡ 스피드</button>
     </div>
-    <p class="tiny" style="margin:0 0 6px">${set.speed ? "⚡ 스피드: 시간 짧음 · <b>가장 먼저 맞힌 사람만</b> 공격 · 틀리면 내 HP -5" : "🐢 일반: 모두 답하고 · 맞히면 빠를수록 세게 공격"} · 제한 ${GAMES[set.game].tl[set.speed ? 1 : 0] / 1000}초${set.players === 3 ? " · 3인은 공격이 상대 두 명에게 나눠 들어가요" : ""}</p>
+    <p class="tiny" style="margin:0 0 6px">${set.speed ? "⚡ 스피드: 시간 짧음 · <b>가장 먼저 맞힌 사람만</b> 공격 · 틀리면 내 HP -5" : "🐢 일반: 모두 답하고 · 맞히면 빠를수록 세게 공격"}${set.players === 3 ? " · 3인은 공격이 상대 두 명에게 나눠 들어가요" : ""}</p>
+    <div class="row"><span class="lbl">제한 시간</span>
+      ${TIMES.map(t => `<button class="seg ${set.time === t ? "on" : ""}" data-act="settime" data-v="${t}" ${dis}>${t}초</button>`).join("")}
+    </div>
+    <div class="row"><span class="lbl"></span>
+      <button class="seg ${set.ramp ? "on" : ""}" data-act="setramp" ${dis}>⏩ 점점 빨라지기 ${set.ramp ? "켜짐" : "꺼짐"}</button>
+    </div>
+    <p class="tiny" style="margin:0 0 6px">⏱ 첫 문제 <b>${tlFor(set, 0) / 1000}초</b>${set.ramp ? ` → 문제마다 조금씩(2%) 줄어서 최소 <b>${tlMin(set) / 1000}초</b>까지` : " · 끝까지 똑같아요"}${set.speed ? " (스피드 모드는 고른 시간의 60%)" : ""}</p>
     <div class="row"><span class="lbl">문제 수</span>
       ${NS.map(n => `<button class="seg ${set.n === n ? "on" : ""}" data-act="setn" data-v="${n}" ${dis}>${n === 0 ? "♾️ 무한" : n}</button>`).join("")}
     </div>
@@ -2265,9 +2282,11 @@ function changeSet(act, v){
   else if (act === "setspeed") target.speed = v === "1";
   else if (act === "setplayers") target.players = v === "3" ? 3 : 2;
   else if (act === "setn"){ const n = parseInt(v, 10); if (NS.includes(n)) target.n = n; }
+  else if (act === "settime"){ const n = parseInt(v, 10); if (TIMES.includes(n)) target.time = n; }
+  else if (act === "setramp") target.ramp = !target.ramp;
   else if (act === "setcat"){ const has = target.cats.includes(v); if (has && target.cats.length > 1) target.cats = target.cats.filter(x => x !== v); else if (!has && CATS.includes(v)) target.cats = CATS.filter(x => x === v || target.cats.includes(x)); }
   else if (act === "setsec"){ const s = parseInt(v, 10); const has = target.sec.includes(s); if (has && target.sec.length > 1) target.sec = target.sec.filter(x => x !== s); else if (!has) target.sec = [...target.sec, s].sort(); }
-  if (mode === "host"){ G.tl = GAMES[G.set.game].tl[G.set.speed ? 1 : 0]; G.v++; syncWaitPlayers(); broadcast(); }
+  if (mode === "host"){ G.tl = tlFor(G.set, 0); G.v++; syncWaitPlayers(); broadcast(); }
   else saveCfg();
   render();
 }
