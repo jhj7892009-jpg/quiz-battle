@@ -390,6 +390,104 @@ body{overflow-x:clip}
 #chatroot.docked.mini .cform{padding:2px 8px 6px}
 #chatroot.docked.mini .cform input{padding:4px 8px}
 #chatroot.docked.mini .cform .btn{padding:4px 12px}
+/* v11: 폴드(접은·펼친 화면)와 모든 폰 비율 대응 */
+.battle{grid-template-columns:minmax(0,1fr)}
+.fighters{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+.fighters.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.fc,.pad,.b-top,.b-side,.b-main,.topbar{min-width:0}
+.fc .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fc .st{overflow-wrap:anywhere}
+.battle .topbar .tt{flex:1 1 auto}
+.pads.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pads.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.pbtns.k4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.pbtns.k2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.emobar{flex-wrap:nowrap;overflow-x:auto;justify-content:safe center;scrollbar-width:none}
+.emobar::-webkit-scrollbar{display:none}
+.emob{flex:0 0 auto}
+@media (max-width:380px){
+  .battle{padding:6px 6px calc(6px + env(safe-area-inset-bottom));gap:4px}
+  .battle .topbar{font-size:11px;gap:6px}
+  .battle .tb{gap:6px}
+  .battle .chatbtn{padding:3px 7px;font-size:11px}
+  .fighters{gap:4px}
+  .vs{font-size:14px}
+  .battle .fc{padding:18px 5px 5px;border-radius:12px}
+  .battle .fc .nm{font-size:12px}
+  .battle .fc .st,.battle .fc .hpn{font-size:10px}
+  .battle .meta{font-size:12px;gap:4px}
+  .battle .chip{font-size:10px;padding:1px 6px}
+  .battle .qcard{padding:10px;border-radius:12px}
+  .battle .opt{padding:7px 8px;gap:6px}
+  .battle .opt kbd{display:none}
+  .battle .itm{padding:5px 4px;font-size:13px}
+  .battle .itm small{font-size:10px}
+  .pbtns{gap:4px}
+  .pbtns button{font-size:15px}
+  .pbtns button small{font-size:9px}
+  .pad{padding:6px}
+  .pad .pn{font-size:12px}
+  .ava .bub{font-size:10px;padding:3px 6px;max-width:100px}
+  .wrap{padding:14px 10px 40px}
+  h1{font-size:21px}
+  .card{padding:12px}
+  .code{font-size:38px;letter-spacing:8px}
+}
+@media (max-width:520px){
+  .pads.n3 .pbtns.k4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pads.n3 .padsh{font-size:10px}
+  .battle.n3 .fc .avwrap .ava{font-size:clamp(20px,4.5vh,36px)}
+}
+@media (min-width:560px) and (min-aspect-ratio:5/4){
+  .battle{grid-template-columns:minmax(200px,32%) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);column-gap:12px}
+  .b-top{grid-column:1 / -1}
+  .b-side{overflow:auto;padding-top:14px}
+  .b-side .fighters{display:flex;flex-direction:column;gap:8px}
+  .b-side .vs{display:none}
+  .b-side .fc{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"av nm" "av hp" "av hpn" "av st";column-gap:10px;text-align:left;align-items:center;padding:10px}
+  .b-side .fc .avwrap{grid-area:av}
+  .b-side .fc .nm{grid-area:nm}.b-side .fc .hp{grid-area:hp}.b-side .fc .hpn{grid-area:hpn;display:block}.b-side .fc .st{grid-area:st}
+  .battle.haschat{grid-template-rows:auto minmax(0,1fr)}
+  .chatslot.bar{display:none}
+  .chatslot.side{display:block;flex:1 1 auto;min-height:150px}
+}
+@media (max-height:480px) and (min-aspect-ratio:5/4){
+  .battle{padding:4px 10px calc(4px + env(safe-area-inset-bottom));gap:4px}
+  .battle .topbar{font-size:11px;margin:0}
+  .b-side{padding-top:10px}
+  .b-side .fighters{gap:5px}
+  .b-side .fc{padding:5px 8px;grid-template-areas:"av nm" "av hp" "av st";border-radius:10px}
+  .b-side .fc .hpn{display:none}
+  .b-side .fc .avwrap .ava{font-size:clamp(22px,9vh,34px)}
+  .b-side .fc .st{font-size:10px;min-height:0;margin-top:1px}
+  .b-side .fc .nm{font-size:12px}
+  .b-side .fc .hp{height:7px;margin:3px 0}
+  .b-side .fc .combo{font-size:10px;top:2px}
+  .b-side .emobar{margin:0}
+  .battle .emob{font-size:15px;padding:2px 6px}
+  .chatslot.side{min-height:96px}
+  .b-main{gap:4px}
+  .battle .meta{font-size:11px}
+  .battle .timer{height:6px}
+  .battle .items{gap:6px}
+  .battle .itm{padding:3px;flex-direction:row;justify-content:center;gap:6px;font-size:12px}
+  .battle .itm small{display:none}
+  .battle .qcard{padding:8px 10px}
+  .battle .q{font-size:13px;margin-bottom:6px}
+  .battle .opt{padding:5px 10px;font-size:13px}
+  .battle .opts.oxgrid .opt{padding:4px}
+  .battle .oxl{font-size:22px}
+  .battle .abc{font-size:12px;padding:6px 8px}
+  .battle .explain{font-size:12px;padding:6px 8px;margin-top:6px}
+  .pads{gap:6px}
+  .pad{padding:4px 6px}
+  .pad .pn,.padsh,.pst,.pbtns button small{display:none}
+  .pbtns button{padding:4px 0;font-size:14px}
+  .ava .bub{font-size:9px;padding:2px 5px}
+  .b-main .bar .sub{display:none}
+  .b-main .bar .btn{padding:6px 12px;font-size:13px}
+}
+@media (max-width:380px){.emobar{flex-wrap:wrap;overflow:visible;gap:4px}.battle .emob{font-size:16px;padding:3px 6px}.battle .emob.txt{font-size:11px!important}}
 </style>
 </head>
 <body>
@@ -1963,6 +2061,8 @@ const ERR_TXT = {
 const errText = c => ERR_TXT[c] || ("온라인 연결 오류 (" + esc(c) + "). 새로고침해 보세요.");
 
 /* ====== 공통 뷰 헬퍼 ====== */
+// 보기 글자: 안전하게 바꾼 뒤 밑줄(<u>)만 다시 살림
+const fmtOpt = s => esc(s).replace(/&lt;(\/?)u&gt;/g, "<$1u>");
 const view = () => mode === "guest" ? R : G;
 const solo = () => mode === "local" && !!G && !!G.bot;
 function myIdx(){ return mode === "host" ? 0 : mode === "guest" ? guestIdx() : mode === "local" ? 0 : null; }
@@ -2379,7 +2479,7 @@ function renderBattle(st){
       if (reveal && st.res){ st.res.forEach((r, p) => { if (!r.dead && r.choice === orig) picks.push(p); }); if (orig === q.a) cls += " correct"; else if (picks.length) cls += " wrong"; }
       else if (pend === orig) cls += " picked";
       if (gone) cls += " gone";
-      const label = q.k === "ox" ? `<span class="oxl ${orig === 0 ? "o" : "x"}">${q.o[orig]}</span>` : `<span class="mk">${MARKS[i]}</span><span class="ot">${esc(q.o[orig])}</span>`;
+      const label = q.k === "ox" ? `<span class="oxl ${orig === 0 ? "o" : "x"}">${q.o[orig]}</span>` : `<span class="mk">${MARKS[i]}</span><span class="ot">${fmtOpt(q.o[orig])}</span>`;
       return `<button class="${cls}" data-act="ans" data-i="${i}" ${can && !gone ? "" : "disabled"}>${label}
         ${picks.map(p => `<span class="pk" style="background:${PCOL[p]}">${chOf(st.chars[p]).e} ${esc(st.names[p])}</span>`).join("")}
         ${!multiLocal && !reveal ? `<kbd>${i + 1}</kbd>` : ""}</button>`;
@@ -2387,10 +2487,10 @@ function renderBattle(st){
     answerUI = `<div class="opts ${q.k === "ox" ? "oxgrid" : ""}">${opts}</div>`;
   }
   const pads = multiLocal && st.phase === "q" ? `
-    <div class="pads" style="grid-template-columns:repeat(${n},1fr)">
+    <div class="pads n${n}">
       ${st.names.map((nm, p) => { const done = !!G.ans[p] || !alive(G, p), sh = G.items[p].sh;
         return `<div class="pad" style="--pc:${PCOL[p]}"><div class="pn">${chOf(st.chars[p]).e} ${esc(nm)}</div>
-          <div class="pbtns" style="grid-template-columns:repeat(${st.perm.length},1fr)">${st.perm.map((orig, i) => `<button data-act="pad" data-p="${p}" data-i="${i}" ${done ? "disabled" : ""}>${q.k === "ox" ? q.o[orig] : MARKS[i]}<small>${KEYS[p][i].toUpperCase()}키</small></button>`).join("")}</div>
+          <div class="pbtns k${st.perm.length}">${st.perm.map((orig, i) => `<button data-act="pad" data-p="${p}" data-i="${i}" ${done ? "disabled" : ""}>${q.k === "ox" ? q.o[orig] : MARKS[i]}<small>${KEYS[p][i].toUpperCase()}키</small></button>`).join("")}</div>
           <button class="padsh ${padArmed[p] ? "on" : ""}" data-act="padsh" data-p="${p}" ${done || !sh ? "disabled" : ""}>🛡️ 방어막 ${sh ? (padArmed[p] ? "켜짐" : "×" + sh) : "없음"}</button>
           <div class="pst">${!alive(G, p) ? "💫 탈락" : G.ans[p] ? "답 제출 ✓" : ""}</div></div>`; }).join("")}
     </div>` : "";
@@ -2400,7 +2500,7 @@ function renderBattle(st){
       <button class="itm ${myArmed ? "on" : ""}" data-act="arm" ${can && myShields(st) > 0 ? "" : "disabled"}>🛡️ 방어막 <small>${myArmed ? "켜짐! 답하면 발동" : "공격 1번 막기"} · ${myShields(st)}개</small></button>
     </div>` : "";
   const crowd = ON && mode !== "local" ? ON.members.filter(m => !st.peers.includes(m.peer) && emoFor(m.peer)) : [];
-  const ansTxt = q.k === "mc" ? `${MARKS[st.perm.indexOf(q.a)]} ${esc(q.o[q.a])}` : esc(q.k === "ox" ? q.o[q.a] : q.a);
+  const ansTxt = q.k === "mc" ? `${MARKS[st.perm.indexOf(q.a)]} ${fmtOpt(q.o[q.a])}` : esc(q.k === "ox" ? q.o[q.a] : q.a);
   const explain = reveal ? `<div class="explain"><b>정답: ${ansTxt}</b><br>💡 ${esc(q.e)}</div>` : "";
   const canNext = reveal && (mode === "local" || mode === "host");
   const g = GAMES[st.set.game];
@@ -2451,7 +2551,7 @@ function renderEnd(st){
   const who = mode === "local" && !solo() ? "누군가 틀린 문제" : "내가 틀린 문제";
   const note = me === null ? "" : wl.length ? `
     <details class="wrongs"><summary>📒 오답 노트 · ${who} ${wl.length}개 (눌러서 복습)</summary>
-      ${wl.map(id => { const q = QS[id]; const ans = q.k === "mc" ? esc(q.o[q.a]) : q.k === "ox" ? q.o[q.a] : esc(q.a);
+      ${wl.map(id => { const q = QS[id]; const ans = q.k === "mc" ? fmtOpt(q.o[q.a]) : q.k === "ox" ? q.o[q.a] : esc(q.a);
         return `<div class="wq"><div class="wqq">${q.q}</div><div class="wqa">✅ ${ans}</div><div class="wqe">💡 ${esc(q.e)}</div></div>`; }).join("")}
     </details>` : `<p class="tiny" style="margin:0 0 12px">📒 틀린 문제가 하나도 없어요! 완벽해요 🎉</p>`;
   $app.innerHTML = `
